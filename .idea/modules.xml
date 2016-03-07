@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../beihang_lmdb/.idea/beihang_lmdb.iml" filepath="$PROJECT_DIR$/../beihang_lmdb/.idea/beihang_lmdb.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/lmdb_try.iml" filepath="$PROJECT_DIR$/.idea/lmdb_try.iml" />
     </modules>
   </component>
 </project>
