@@ -6,110 +6,6 @@ from os.path import join as pjoin
 from read_tool import *
 from data_process import *
 
-
-class lmdb_img():
-    def __init__(self, img_id, joints, path=None):
-        self.id = img_id
-        self.path = path
-        self.joints = joints
-        self.image = cv2.imread(pjoin(path, img_id + ".jpg"))
-
-    def generate_bbox(self):
-        h, w = self.image.shape[:2]
-        joint = np.array(self.joints)
-        print joint
-        X_list = joint[:, 0]
-        Y_list = joint[:, 1]
-        X_list = [each for each in X_list if each != -1]
-        Y_list = [each for each in Y_list if each != -1]
-
-        # Todo
-        # -1 correction
-        xx_min = x_min = min(X_list)
-        xx_max = x_max = max(X_list)
-        yy_min = y_min = min(Y_list)
-        yy_max = y_max = max(Y_list)
-
-        # print x_min, y_min, x_max, y_max
-        mu, sigma = 0, 0.3
-        width = max(x_max - x_min, y_max - y_min)
-
-        print "image shape %d %d" % self.image.shape[:2]
-        print x_min, y_min, x_max, y_max
-        x_min = int(min(max(1, x_min - width * abs(np.random.normal(mu, sigma))), max(1, x_min - 10)))
-        y_min = int(min(max(1, y_min - width * abs(np.random.normal(mu, sigma))), max(1, y_min - 10)))
-        x_max = int(max(min(h, x_max + width * abs(np.random.normal(mu, sigma))), min(h, x_max + 10)))
-        y_max = int(max(min(w, y_max + width * abs(np.random.normal(mu, sigma))), min(w, y_max + 10)))
-
-        height, weight = y_max - y_min, x_max - x_min
-        ratio = height / float(weight)
-
-        print "bbox : ",
-        print x_min, y_min, x_max, y_max
-        # print "origin ratio : %f" % ratio
-        # print height, weight
-
-        if 0.8 <= ratio <= 1.25:
-            pass
-        elif ratio > 1.25:
-            print "ratio < 0.8"
-            x_min = int(max(0, x_min - weight * 0.1))
-            x_max = int(min(w, x_max + weight * 0.1))
-        elif ratio < 0.8:
-            print "ratio > 1.25"
-            y_min = int(max(0, y_min - height * 0.1))
-            y_max = int(min(h, y_max + height * 0.1))
-
-        x_min = min(x_min, xx_min)
-        y_min = min(y_min, yy_min)
-        x_max = max(x_max, xx_max)
-        y_max = max(y_max, yy_max)
-
-        height, weight = y_max - y_min, x_max - x_min
-        ratio = height / float(weight)
-        # print "after ratio : %f " % ratio
-        # print height, weight
-        print "after bbox : ",
-        print x_min, y_min, x_max, y_max
-
-        temp_img = np.array(self.image, copy=True)
-        for pt in self.joints:
-            cv2.circle(temp_img, tuple(pt), 1, (128, 128, 0), 15)
-        temp_img = temp_img[y_min:y_max, x_min:x_max]
-
-        # cv2.imwrite("temp/" + self.id + str(random.randint(0, 100)) + ".jpg", temp_img)
-
-        cv2.imshow("try", temp_img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-        return [x_min, y_min], [x_max, y_max]
-
-    def crop(self, bbox):
-        pass
-
-    def flip(self):
-        pass
-
-    def augment(self):
-        self.generate_bbox()
-
-    def show(self, option=0):
-        if option == 0:
-            img = np.array(self.image, copy=True)
-        else:
-            img = np.array(self.image, copy=True)
-            # print self.joints
-            for pt in self.joints:
-                # print pt
-                cv2.circle(img, tuple(pt), 1, (128, 128, 0), 15)
-
-        cv2.imshow("image", img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        return img
-
-
 def show(image, joints=None, option=0):
     if option == 0:
         img = np.array(image, copy=True)
@@ -147,8 +43,8 @@ def crop_and_resize(img, pt1, pt2, pts):
     x_max = pt2[0]
     y_max = pt2[1]
 
-    h_scale = 227 / float(x_max - x_min)
-    w_scale = 227 / float(y_max - y_min)
+    h_scale = 227.0 / float(x_max - x_min)
+    w_scale = 227.0 / float(y_max - y_min)
 
     new_img = np.array(img[y_min:y_max, x_min:x_max], copy=True)
     new_pts = [[pt[0] - x_min, pt[1] - y_min] for pt in pts]
@@ -176,7 +72,7 @@ def generate_bbox(img, pts):
     yy_max = y_max = max(Y_list)
 
     # print x_min, y_min, x_max, y_max
-    mu, sigma = 0, 0.3
+    mu, sigma = 0, 0.1
     width = max(x_max - x_min, y_max - y_min)
 
     # print "image shape %d %d" % img.shape[:2]

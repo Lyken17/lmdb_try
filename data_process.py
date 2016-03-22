@@ -88,12 +88,14 @@ def combine_attribute(image_id, image_attr):
                 cur[attr][temp[attr]] = True
             else:
                 cur[attr]["else"] = True
+            # print cur[attr]
         image_attr[img_id] = cur
-
+    # print image_attr[img_id]
     return image_id, image_attr
 
 
 def data_filter(image_id, image_joint, image_attr, image_type):
     image_id, image_joint = joint_filter(image_id, image_joint)
     image_id, image_attr = attribute_filter(image_id, image_attr, image_type)
+
     return image_id, image_joint, image_attr
