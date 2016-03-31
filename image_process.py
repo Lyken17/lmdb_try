@@ -24,17 +24,18 @@ def show(image, joints=None, option=0):
 
 def augment_data(img, pts, flip=True, imshow=False):
     pt1, pt2 = generate_bbox(img, pts)
+    bbox = pt1 + pt2
     new_img, new_pts = crop_and_resize(img, pt1, pt2, pts)
     if imshow:
         show(new_img, new_pts, option=1)
-    yield new_img, new_pts
+    yield new_img, new_pts, bbox
 
     if flip == True:
         new_img = cv2.flip(new_img, 1)
         new_pts = [[227 - pt[0], pt[1]] for pt in new_pts]
         if imshow:
             show(new_img, new_pts, option=1)
-        yield new_img, new_pts
+        yield new_img, new_pts, bbox
 
 
 def crop_and_resize(img, pt1, pt2, pts):
@@ -72,15 +73,15 @@ def generate_bbox(img, pts):
     yy_max = y_max = max(Y_list)
 
     # print x_min, y_min, x_max, y_max
-    mu, sigma = 0, 0.1
-    width = max(x_max - x_min, y_max - y_min)
+    mu, sigma = 0, 0.35
+    width = max(x_max - x_min, y_max - y_min) * 1.1
 
     # print "image shape %d %d" % img.shape[:2]
     # print x_min, y_min, x_max, y_max
     x_min = int(min(max(1, x_min - width * abs(np.random.normal(mu, sigma))), max(1, x_min - 10)))
     y_min = int(min(max(1, y_min - width * abs(np.random.normal(mu, sigma))), max(1, y_min - 10)))
-    x_max = int(max(min(h, x_max + width * abs(np.random.normal(mu, sigma))), min(h, x_max + 10)))
-    y_max = int(max(min(w, y_max + width * abs(np.random.normal(mu, sigma))), min(w, y_max + 10)))
+    x_max = int(max(min(w, x_max + width * abs(np.random.normal(mu, sigma))), min(w, x_max + 10)))
+    y_max = int(max(min(h, y_max + width * abs(np.random.normal(mu, sigma))), min(h, y_max + 10)))
 
     height, weight = y_max - y_min, x_max - x_min
     ratio = height / float(weight)
@@ -89,12 +90,12 @@ def generate_bbox(img, pts):
         pass
     elif ratio > 1.25:
         # print "ratio < 0.8"
-        x_min = int(max(0, x_min - weight * 0.1))
-        x_max = int(min(w, x_max + weight * 0.1))
+        x_min = int(max(0, x_min - weight * 0.15))
+        x_max = int(min(w, x_max + weight * 0.15))
     elif ratio < 0.8:
         # print "ratio > 1.25"
-        y_min = int(max(0, y_min - height * 0.1))
-        y_max = int(min(h, y_max + height * 0.1))
+        y_min = int(max(0, y_min - height * 0.15))
+        y_max = int(min(h, y_max + height * 0.15))
 
     x_min = min(x_min, xx_min)
     y_min = min(y_min, yy_min)

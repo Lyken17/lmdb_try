@@ -1,0 +1,13 @@
+{
+    "path": {
+        "data_folder": "Data/",
+        "caffe": "/home/cs-user/project/caffe_stn/"
+    },
+    "option": {
+        "read_from_file": true
+    },
+    "augment": {
+    	"times": 3,
+    	"flip": true
+    }
+}

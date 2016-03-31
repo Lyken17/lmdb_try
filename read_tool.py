@@ -4,10 +4,14 @@ import glob, sys, os, shutil
 import json
 from os.path import join as pjoin
 import random, copy
+from tqdm import tqdm
+
 from data_process import *
 from image_process import *
 
-HOME = "/Users/lykensyu"
+
+
+HOME = "/Users/lykensyu/"
 DROPBOX = pjoin(HOME, 'Dropbox', 'Data_old')
 
 data_source = "Local"
@@ -18,6 +22,13 @@ else:
     arr_path = 'Data/img/'
     joint_path = 'Data/joint/'
 
+with open('config.json') as fp:
+    config = json.load(fp)
+    data_folder = config["path"]['data_folder']
+    read_from_file = config["option"]['read_from_file']
+    augment_times = config["augment"]["times"]
+    augment_flip = config["augment"]["flip"]
+    # print augment_flip
 
 def read_in_img(img_folder_path):
     return list_files(img_folder_path, "jpg")
@@ -43,33 +54,26 @@ def read_in_type(type_path):
 
 
 def read_info(option=0):
-    if option == 0:
+    if option == True:
         # Read in all necessary data
         image_id = read_in_img(arr_path)
         image_joint = read_in_joint(joint_path)
         # print "%d images" % len(image_id)
         # print "%d joints" % len(image_joint)
-        with open('Data/attribute.json', 'r') as fp:
+
+        with open(data_folder + 'attribute.json', 'r') as fp:
             image_attr = json.load(fp)
             # print "%d attributions" % len(image_attr)
-        with open('Data/type.json', 'r') as fp:
+        with open(data_folder + 'type.json', 'r') as fp:
             image_type = json.load(fp)
             # print "%d cloth types" % len(image_type)
 
-        '''
-        image_attr = {each["ID_image"]: each for each in image_attr}
-        image_type = {each["ID_Image"]: each for each in image_type}
-        with open('Data/attribute_1.json', 'w') as fp:
-            json.dump(image_attr, fp, indent=4)
-        with open('Data/type_1.json', 'w') as fp:
-            json.dump(image_type, fp, indent=4)
-        '''
         # Preprocess the data
         image_id, image_joint, image_attr = data_filter(image_id, image_joint, image_attr, image_type)
 
-        f1 = open('Data/' + 'image_id.json', 'w+')
-        f2 = open('Data/' + 'image_joint.json', 'w+')
-        f3 = open('Data/' + 'image_attr.json', 'w+')
+        f1 = open(data_folder + 'image_id.json', 'w+')
+        f2 = open(data_folder + 'image_joint.json', 'w+')
+        f3 = open(data_folder + 'image_attr.json', 'w+')
 
         json.dump(image_id, f1, indent=4)
         json.dump(image_joint, f2, indent=4)
@@ -79,11 +83,10 @@ def read_info(option=0):
         f2.close()
         f3.close()
 
-
     else:
-        f1 = open('Data/' + 'image_id.json', 'r')
-        f2 = open('Data/' + 'image_joint.json', 'r')
-        f3 = open('Data/' + 'image_attr.json', 'r')
+        f1 = open(data_folder + 'image_id.json', 'r')
+        f2 = open(data_folder + 'image_joint.json', 'r')
+        f3 = open(data_folder + 'image_attr.json', 'r')
 
         image_id = json.load(f1)
         image_joint = json.load(f2)
@@ -96,44 +99,49 @@ def read_info(option=0):
     return [image_id, image_joint, image_attr]
 
 
-def output2file(prefix, augment_times, output_dir, image_id_list):
+def output2file(output_dir, image_id_list, augment_times=3, flip=False):
     final_res = {}
-    img_dir = pjoin(output_dir, prefix + "_img/")
-    print img_dir
-    problem_set = [201463171429402499314, 20148198625358440626, 2014610222631735266601, 201462011234125939075]
-    problem_set = [str(each) for each in problem_set]
-    for img_id in image_id_list[:]:
-    # for img_id in problem_set:
-    #     print img_id
-    #     image_joint[img_id]
-        # 20148198312931208103  20148198625358440626 2014610222631735266601 201462011234125939075
-        # img_id = u'20148132084931447631'
+    new_res = {}
+    img_dir = pjoin(output_dir, "img/")
+    # print img_dir
+
+    for img_id in tqdm(image_id_list[:], desc='data augmentation', leave=True):
         count = 0
+        new_res[img_id] = {}
+        new_res[img_id]["bbox"] = []
+        new_res[img_id]["attribute"] = image_attr[img_id]
+        new_res[img_id]["joints"] = image_joint[img_id]
+        # print image_joint[img_id]
         for i in xrange(augment_times):
             img = cv2.imread(pjoin(arr_path, img_id + ".jpg"))
-            for new_img, new_pts in (augment_data(img, image_joint[img_id], flip=True, imshow=False)):
+            for new_img, new_pts, bbox in (augment_data(img, image_joint[img_id], flip=False, imshow=False)):
                 # print img_id
-                temp_id = img_id + "_augment_" + str(count)
-                count += 1
-                final_res[temp_id] = {}
-                final_res[temp_id]["joints"] = new_pts
-                final_res[temp_id]["attribute"] = image_attr[img_id]
-                cv2.imwrite(pjoin(img_dir, temp_id + ".jpg"), new_img)
+                new_res[img_id]["bbox"].append(bbox)
 
-    print len(final_res)
-    with open(pjoin(output_dir, prefix + "_data.json"), 'w') as fp:
-        json.dump(final_res, fp, indent=4)
+                # temp_id = img_id + "_augment_" + str(count)
+                # count += 1
+                # final_res[temp_id] = {}
+                # final_res[temp_id]["joints"] = new_pts
+                # final_res[temp_id]["attribute"] = image_attr[img_id]
+                # cv2.imwrite(pjoin(img_dir, temp_id + ".jpg"), new_img)
+
+
+    # with open(pjoin(output_dir, prefix + "data.json"), 'w') as fp:
+    #     json.dump(final_res, fp, indent=4)
+    # print output_dir
+
+    with open(pjoin(output_dir,  "augmented_data.json"), 'w') as fp:
+        json.dump(new_res, fp, indent=4)
 
 
 def data_augmentation(image_id, image_joint, image_attr,prefix="train"):
     random.shuffle(image_id)
-    augment_times = 3
-    output_dir = "Data/output"
+    output_dir = data_folder
     prefix = "train"
     # image_id_list = image_id[:2710] if prefix == "train" else image_id[2711:]
 
     # Train-whole
-    output2file("train", augment_times, output_dir, image_id[:])
+    output2file(output_dir, image_id[:], augment_times, False)
 
     # Valid-whole
     # output2file("valid", augment_times, output_dir, image_id[2700:])
@@ -171,7 +179,8 @@ def extract_useful():
 
 
 if __name__ == "__main__":
-    extract_useful()
-    image_id, image_joint, image_attr = read_info(option=0)
+    # extract_useful()
+    image_id, image_joint, image_attr = read_info(option=read_from_file)
     # print len(image_id)
     data_augmentation(image_id, image_joint, image_attr)
+    pass
