@@ -58,7 +58,8 @@ def data_augment(img, joints, bboxs, flip=False):
 
         if cfg.augment_flip:
             flip_img = cv.flip(new_img,1)
-            flip_joints = [[227 - pt[0], pt[1]] for pt in new_joints]
+            temp_flip_joints = [[227 - pt[0], pt[1]] for pt in new_joints]
+            flip_joints = temp_flip_joints[3:6] + temp_flip_joints[0:3] + temp_flip_joints[6:]
             yield  flip_img, flip_joints
 
         #     if imshow:
@@ -112,33 +113,45 @@ def generate(data, folder, prefix="train"):
         img_id = each[0]
         info = dict(each[1])
         # img_id = u'201462516952791918769'
-        joints = info["joints"]
+        joints = info["joints"][1:]
         attrs = info['attribute']
         bboxs = info["bbox"]
-
+        print "hahaha"
+        print attrs
+        print json.dumps(info, indent=4)
+        print "hahaha"
         img = cv.imread(cfg.data_path + "img/" + img_id + ".jpg")
-        bbox_json[img_id] = []
+        bbox_json[img_id] = {}
+        bbox_json[img_id]["whole"] = bboxs
+        bbox_json[img_id]["gt_bbox"] = []
         for temp_img, temp_joints in data_augment(img, joints, bboxs, flip=cfg.augment_flip):
             # === plot image ===
-            '''
-            for pt in temp_joints:
-                cv.circle(temp_img, center=(pt[0], pt[1]), radius=1, color=(255,0,0), thickness=10)
-            cv.imshow("show", temp_img)
-            cv.waitKey(0)
-            cv.destroyAllWindows()
-            '''
+            # temp_img_for_show = np.array(temp_img, copy=True)
+            #
+            # for pt_idx, pt in enumerate(temp_joints[:]):
+            #     temp_color = (255,0,0)
+            #     if 6 <= pt_idx:
+            #         temp_color = (0, 255, 0)
+            #     cv.circle(temp_img_for_show, center=(pt[0], pt[1]), radius=1, color=temp_color, thickness=10)
+            # cv.imshow("show", temp_img_for_show)
+            # cv.waitKey(0)
+            # cv.destroyAllWindows()
+
             # ============ update lmdb key ============
             lmdb_key = str(idx).encode('utf-8')
+
             # ============ generate image lmdb ============
             img_datum = lu.generate_img_datum(temp_img)
             img_txn.put(lmdb_key, img_datum.SerializeToString())
 
             # ============ generate joints lmdb ============
 
-            joint_datum = np.asarray(temp_joints).ravel()
+            joint_datum = np.asarray(temp_joints[1:]) / 227.0
+            joint_datum = joint_datum.ravel()
             joint_datum = lu.generate_array_datum(joint_datum, is_float=True)
             # print("joints info:")
             # print(joint_datum)
+
             joint_txn.put(lmdb_key, joint_datum.SerializeToString())
 
             # ============ generate attribute lmdb ============
@@ -168,25 +181,25 @@ def generate(data, folder, prefix="train"):
             bbox_data = []
 
             # toursor
-            toursor_pts = temp_joints[1:] # left hand + right hand + spine
+            toursor_pts = [temp_joints[0], temp_joints[3], temp_joints[8]] # no longer left hand + right hand + spine
             temp_pts = toursor_pts
-            res = find_sub_bbox(temp_pts, (227, 227),0.8, 0.8) / float(227)
+            res = find_sub_bbox(temp_pts, (227, 227),0.85, 0.88) / float(227)
             bbox_data.append(res)
 
             # collar
-            collar_pts = [temp_joints[0], temp_joints[1], temp_joints[4], temp_joints[8]] # head + left shoulder + right shoulder + spine 1
+            collar_pts = [temp_joints[0], temp_joints[3], temp_joints[6]] # head + left shoulder + right shoulder + spine 1
             temp_pts = collar_pts
-            res = find_sub_bbox(temp_pts, (227, 227),0.9, 0.9) / float(227)
+            res = find_sub_bbox(temp_pts, (227, 227),0.85, 1.15) / float(227)
             bbox_data.append(res)
 
             # button_placket
-            button_placket_pts = [temp_joints[1], temp_joints[4], temp_joints[8]] # Left hand 1 + right hand 3 + spine 2
+            button_placket_pts = [temp_joints[0], temp_joints[3], temp_joints[8]] # Left hand 1 + right hand 3 + spine 2
             temp_pts = button_placket_pts
-            res = find_sub_bbox(temp_pts, (227, 227),1, 1) / float(227)
+            res = find_sub_bbox(temp_pts, (227, 227),0.85, 0.9) / float(227)
             bbox_data.append(res)
 
             # =================left_sleeve=================
-            left_sleeve = [temp_joints[1], temp_joints[2], temp_joints[3]] # Left hand 1 2 3
+            left_sleeve = [temp_joints[0], temp_joints[1], temp_joints[2]] # Left hand 1 2 3
             temp_pts = left_sleeve
 
             legal = True
@@ -196,12 +209,12 @@ def generate(data, folder, prefix="train"):
                     break
             if legal == False:
                 temp_pts = temp_joints[1:]
-            res = find_sub_bbox(temp_pts, (227, 227),0.75, 1, limit_ratio=0.6) / float(227)
+            res = find_sub_bbox(temp_pts, (227, 227),0.8, 1.02, limit_ratio=0.6) / float(227)
             bbox_data.append(res)
 
 
             # =================right_sleeve=================
-            right_sleeve = [temp_joints[4], temp_joints[5], temp_joints[6]] # Right hand 1 2 3
+            right_sleeve = [temp_joints[3], temp_joints[4], temp_joints[5]] # Right hand 1 2 3
             temp_pts = right_sleeve
 
             legal = True
@@ -211,12 +224,24 @@ def generate(data, folder, prefix="train"):
                     break
             if legal == False:
                 temp_pts = temp_joints[1:]
-            res = find_sub_bbox(temp_pts, (227, 227),0.75, 1, limit_ratio=0.6) / float(227)
+            res = find_sub_bbox(temp_pts, (227, 227),0.8, 1.02, limit_ratio=0.6) / float(227)
             bbox_data.append(res)
 
+            if True:
+                test_img = np.array(temp_img, copy=True)
+                res = res * float(227)
+                cv.rectangle(test_img, (int(res[0]), int(res[1])), (int(res[2]), int(res[3])), (225, 0, 0), 2)
+                pt_list = temp_joints
+                for pt in pt_list:
+                    cv.circle(test_img, (int(pt[0]), int(pt[1])), 1, (0, 225, 0), 2)
+                for pt in temp_pts:
+                    cv.circle(test_img, (int(pt[0]), int(pt[1])), 1, (0, 0, 225), 2)
+                cv.imshow("image", test_img)
+                cv.waitKey(0)
+                cv.destroyAllWindows()
 
             # bbox_json[key] = list(bbox_data)
-            bbox_json[img_id].append([each.tolist() for each in bbox_data])
+            bbox_json[img_id]["gt_bbox"].append([each.tolist() for each in bbox_data])
             # print list(bbox_data[0, :])
             # print(bbox_data)
 
@@ -242,6 +267,10 @@ def generate(data, folder, prefix="train"):
                 cv.destroyAllWindows()
             # ============ update lmdb key ============
             idx += 1
+
+            # ============ Don't augment for valid =======
+            if prefix == "valid":
+                break
 
     with open(folder + 'lmdb/' + prefix + "_bbox.json", 'w') as fp:
         json.dump(bbox_json, fp, indent=4)

@@ -182,5 +182,6 @@ if __name__ == "__main__":
     # extract_useful()
     image_id, image_joint, image_attr = read_info(option=read_from_file)
     # print len(image_id)
+    # print image_joint
     data_augmentation(image_id, image_joint, image_attr)
     pass

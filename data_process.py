@@ -25,7 +25,18 @@ def joint_filter(image_id, image_joint):
             for pt in image_joint[each][part]:
                 res.append(pt['position'])
 
-        new_joint[each] = res
+        negative_position = False
+        for pos in res:
+            if pos[0] < 0.5 or pos[1] < 0.5: #-1
+                negative_position = True
+                break
+
+        if negative_position:
+            image_id.remove(each)
+            del image_joint[each]
+            continue
+        else:
+            new_joint[each] = res
 
     return image_id, new_joint
 
@@ -36,6 +47,7 @@ def attribute_filter(image_id, image_attr, image_type):
 
     key_list = ['Placket1', 'SleeveLength', 'CollarType', 'ButtonType', 'Cloth_Type']
     new_list = ['placket', 'sleeve_type', 'collar_type', 'button_type', 'cloth_type']
+
 
     for img_id in image_id[:]:
         if img_id not in image_attr or img_id not in image_type:
@@ -73,8 +85,6 @@ def combine_attribute(image_id, image_attr):
     count_table = {each: select_4_largest(count_table[each]) \
         if each == "cloth_type" else count_table[each] \
                    for each in count_table}
-
-    # print count_table
 
     for img_id in image_id[:]:
         cur = {}
